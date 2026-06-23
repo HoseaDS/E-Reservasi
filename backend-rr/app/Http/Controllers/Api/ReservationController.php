@@ -5,6 +5,9 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Models\Reservation;
 use Illuminate\Http\Request;
+use App\Models\Notification;
+use App\Models\User;
+use Carbon\Carbon;
 
 class ReservationController extends Controller
 {
@@ -63,7 +66,8 @@ class ReservationController extends Controller
         $userId = auth()->id() ?? $request->user_id ?? \App\Models\User::first()?->id;
 
         if (!$userId) {
-        return response()->json(['message' => 'User tidak terdeteksi, silakan login!'], 401);}
+        return response()->json(['message' => 'User tidak terdeteksi, silakan login!'], 401);
+        }
 
         $reservation = Reservation::create([
             'user_id'       => $userId, 
@@ -75,11 +79,27 @@ class ReservationController extends Controller
             'status'        => 'Menunggu' // Default huruf besar sesuai Enum Migration
         ]);
 
+        // Notifikasi untuk Admin/Verifikator
+        $reservation->load('room'); 
+        
+        // Gunakan nama variabel $reservation (bukan $reservasi)
+        $tglRequest = Carbon::parse($reservation->tanggal)->translatedFormat('d M Y');
+        $staffs = User::whereIn('role', ['Admin Kominfotik', 'Superadmin', 'Verifikator'])->get();
+
+        foreach ($staffs as $staff) {
+            Notification::create([
+                'user_id' => $staff->id,
+                'pesan'   => "Permohonan baru masuk dari {$request->user()->name} untuk Ruangan {$reservation->room->nama} pada tanggal {$tglRequest}.",
+                'unread'  => true,
+            ]);
+        }
+
         return response()->json([
             'success' => true, 
             'message' => 'Reservasi berhasil diajukan, menunggu persetujuan.',
             'data'    => $reservation
         ], 201);
+
     }
 
     // 2. UPDATE STATUS OLEH ADMIN
@@ -98,6 +118,25 @@ class ReservationController extends Controller
 
         $reservation->update(['status' => $request->status]);
         $reservation->save();
+
+        // Notifikasi update status
+        if (in_array($request->status, ['Disetujui', 'Ditolak'])) {
+            
+            $reservation->load('room'); 
+
+            $tglRequest = Carbon::parse($reservation->tanggal)->translatedFormat('d M Y');
+            $tglProses  = Carbon::now()->translatedFormat('d M Y');
+            $statusTeks = $request->status === 'Disetujui' ? 'DISETUJUI' : 'DITOLAK';
+
+            // Ambil role yang menyetujui, fallback ke 'Admin' jika tidak terdeteksi
+            $approverRole = $request->user() ? $request->user()->role : 'Admin/Verifikator';
+
+            Notification::create([
+                'user_id' => $reservation->user_id, // Kirim ke user yang membooking
+                'pesan'   => "Reservasi Anda untuk Ruangan {$reservation->room->nama} (Tanggal Pinjam: {$tglRequest}) telah {$statusTeks} oleh {$approverRole} pada tanggal {$tglProses}.",
+                'unread'  => true,
+            ]);
+        }
 
         return response()->json([
             'success' => true,
