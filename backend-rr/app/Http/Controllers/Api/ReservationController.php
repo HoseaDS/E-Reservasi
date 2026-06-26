@@ -84,7 +84,8 @@ class ReservationController extends Controller
         
         // Gunakan nama variabel $reservation (bukan $reservasi)
         $tglRequest = Carbon::parse($reservation->tanggal)->translatedFormat('d M Y');
-        $staffs = User::whereIn('role', ['Admin Kominfotik', 'Superadmin', 'Verifikator'])->get();
+        // SESUAIKAN DENGAN NAMA ROLE DI DATABASE ANDA
+        $staffs = User::whereIn('role', ['Admin Kominfotik', 'Superadmin', 'Asisten/Pimpinan'])->get();
 
         foreach ($staffs as $staff) {
             Notification::create([
@@ -102,10 +103,9 @@ class ReservationController extends Controller
 
     }
 
-    // 2. UPDATE STATUS OLEH ADMIN
+    // 2. UPDATE STATUS OLEH ADMIN/VERIFIKATOR
     public function updateStatus(Request $request, $id)
     {
-        // PERBAIKAN: Gunakan huruf KAPITAL (Disetujui, Ditolak) sesuai Migration Enum Anda
         $request->validate([
             'status' => 'required|in:Menunggu,Disetujui,Ditolak,Selesai'
         ]);
@@ -117,25 +117,41 @@ class ReservationController extends Controller
         }
 
         $reservation->update(['status' => $request->status]);
-        $reservation->save();
-
-        // Notifikasi update status
+        
+        // =========================================================
+        // KIRIM NOTIFIKASI JIKA STATUS DISETUJUI / DITOLAK
+        // =========================================================
         if (in_array($request->status, ['Disetujui', 'Ditolak'])) {
             
-            $reservation->load('room'); 
+            // Tarik relasi room dan user agar kita bisa ambil namanya
+            $reservation->load(['room', 'user']); 
 
             $tglRequest = Carbon::parse($reservation->tanggal)->translatedFormat('d M Y');
-            $tglProses  = Carbon::now()->translatedFormat('d M Y');
             $statusTeks = $request->status === 'Disetujui' ? 'DISETUJUI' : 'DITOLAK';
+            $approverRole = $request->user() ? $request->user()->role : 'Verifikator';
 
-            // Ambil role yang menyetujui, fallback ke 'Admin' jika tidak terdeteksi
-            $approverRole = $request->user() ? $request->user()->role : 'Admin/Verifikator';
-
+            // --- A. NOTIFIKASI UNTUK USER PEMOHON ---
             Notification::create([
-                'user_id' => $reservation->user_id, // Kirim ke user yang membooking
-                'pesan'   => "Reservasi Anda untuk Ruangan {$reservation->room->nama} (Tanggal Pinjam: {$tglRequest}) telah {$statusTeks} oleh {$approverRole} pada tanggal {$tglProses}.",
+                'user_id' => $reservation->user_id,
+                'pesan'   => "Reservasi Anda untuk {$reservation->room->nama} (Tgl: {$tglRequest}) telah {$statusTeks} oleh {$approverRole}.",
                 'unread'  => true,
             ]);
+
+            // --- B. NOTIFIKASI UNTUK ADMIN KOMINFOTIK ---
+            // Cari semua Admin agar mereka tahu Verifikator sudah bekerja
+            $semuaPengurus = \App\Models\User::where('role', '!=', 'User Bagian')->get();            
+            
+            foreach ($semuaPengurus as $pengurus) {
+                // Hindari mengirim notif ke diri sendiri jika Admin yang memverifikasi
+                if ($request->user() && $pengurus->id === $request->user()->id) continue;
+                if ($pengurus->id === $reservation->user_id) continue;
+
+                Notification::create([
+                    'user_id' => $pengurus->id,
+                    'pesan'   => "Reservasi {$reservation->room->nama} dari {$reservation->user->name} telah {$statusTeks}.",
+                    'unread'  => true,
+                ]);
+            }
         }
 
         return response()->json([
