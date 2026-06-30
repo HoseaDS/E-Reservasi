@@ -1,6 +1,5 @@
 "use client";
 
-// [UPDATE KODE]: Tambahkan import useEffect
 import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 
@@ -19,10 +18,14 @@ export default function EpicAuthPage() {
   const [regInstansi, setRegInstansi] = useState('');
   const [regPassword, setRegPassword] = useState('');
 
+  // --- STATE UNTUK TOAST NOTIFICATION ---
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isToastClosing, setIsToastClosing] = useState(false);
+
   const baseUrl = '/api';
 
   // ========================================================
-  // [TAMBAHAN KODE]: Efek Penangkap Token Redirect Google SSO
+  // Efek Penangkap Token Redirect Google SSO
   // ========================================================
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -31,28 +34,20 @@ export default function EpicAuthPage() {
     const errorFromUrl = params.get('error');
     const nameFromUrl = params.get('name');
 
-    // 1. Antisipasi jika terjadi error dari Google/Backend
     if (errorFromUrl) {
       alert(errorFromUrl);
-      // Bersihkan query string di URL agar rapi
       window.history.replaceState({}, document.title, window.location.pathname);
       return;
     }
     
-    // 2. Jika login Google sukses dan token ditemukan
     if (tokenFromUrl) {
-      // Bersihkan dulu kredensial lama jika ada
       localStorage.clear();
-
-      // Simpan kredensial baru hasil Google SSO
       localStorage.setItem('token', tokenFromUrl);
       localStorage.setItem('user_role', roleFromUrl || 'User Bagian');
       localStorage.setItem('user_name', nameFromUrl || 'Google SSO User');
 
-      // Bersihkan query string dari URL address bar
       window.history.replaceState({}, document.title, window.location.pathname);
 
-      // Pengalihan halaman (Redirect Dashboard) sesuai role asli database
       const userRole = roleFromUrl || 'User Bagian';
       if (userRole === 'Admin Kominfotik' || userRole === 'Superadmin') {
         window.location.href = '/admin';
@@ -63,7 +58,24 @@ export default function EpicAuthPage() {
       }
     }
   }, []);
-  // ========================================================
+
+  // --- LOGIKA AUTO-CLOSE TOAST ---
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        closeToast();
+      }, 4000); // Toast akan hilang otomatis setelah 4 detik
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  const closeToast = () => {
+    setIsToastClosing(true);
+    setTimeout(() => {
+      setToastMessage(null);
+      setIsToastClosing(false);
+    }, 400); 
+  };
 
   // --- HANDLER SUBMIT LOGIN ---
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -81,9 +93,6 @@ export default function EpicAuthPage() {
       });
 
       const data = await response.json(); 
-      console.log("ISI DATA DARI BACKEND:", data);
-      console.log("ROLE:", data?.user?.role);
-      console.log("TOKEN:", data?.token || data?.access_token || data?.authorisation?.token);
 
       if (response.ok) {
         localStorage.removeItem('token');
@@ -96,8 +105,6 @@ export default function EpicAuthPage() {
           localStorage.setItem('user_role', data.user.role);
           localStorage.setItem('user_name', data.user.name);
           
-          alert(`ROLE = ${data.user.role}`);
-          
           if (data.user.role === 'Admin Kominfotik' || data.user.role === 'Superadmin') {
             window.location.href = '/admin';
           } else if (data.user.role === 'Verifikator' || data.user.role === 'Asisten/Pimpinan') {
@@ -109,7 +116,6 @@ export default function EpicAuthPage() {
           alert("Token tidak ditemukan dalam respon backend. Cek console log!");
         }
       } else {
-          // Tambahan handling jika login gagal dari backend
           alert(data.message || "Gagal login. Periksa kembali email dan kata sandi Anda.");
       }
     } catch (err) {
@@ -144,9 +150,7 @@ export default function EpicAuthPage() {
       });
 
       const data = await response.json();
-      console.log("ISI DATA DARI BACKEND:", data);
 
-      // Menyesuaikan logika register agar aman jika token tidak ada di respons
       if(response.ok && data.token) {
           localStorage.setItem('token', data.token);
           localStorage.setItem('user_role', data.user?.role || 'User Bagian');
@@ -159,9 +163,14 @@ export default function EpicAuthPage() {
             window.location.href = '/user';
           }
       } else {
-          // Jika registrasi sukses tapi tidak auto-login, alihkan ke tab login
-          alert("Registrasi berhasil! Silakan masuk menggunakan akun baru Anda.");
+          // [KODE DIUBAH]: Menggunakan Toast alih-alih Alert bawaan browser
+          setToastMessage("Pembuatan akun berhasil! Silakan masuk menggunakan kredensial baru Anda.");
           setIsLogin(true);
+          // Mengosongkan form registrasi
+          setRegName('');
+          setRegEmail('');
+          setRegPassword('');
+          setRegInstansi('');
       }
 
     } catch (err) {
@@ -174,17 +183,12 @@ export default function EpicAuthPage() {
 
   // --- HANDLER GOOGLE SSO ---
   const handleGoogleLogin = () => {
-    // [UPDATE KODE]: Mengalihkan langsung ke URL backend untuk autentikasi
     window.location.href = `${baseUrl}/auth/google`;
   };
 
   return (
-    // TEMA SIHIR: Background Off-White dengan Subtle Mesh Gradient
     <div className="relative min-h-screen w-full bg-[#FDFDFD] font-sans overflow-hidden flex items-center justify-center selection:bg-pink-200 selection:text-pink-900">
       
-      {/* ========================================= */}
-      {/* MAGICAL AMBIENT MESH GRADIENT (THE SECRET)*/}
-      {/* ========================================= */}
       <div className="absolute inset-0 pointer-events-none overflow-hidden z-0">
         <div className="absolute top-[-10%] left-[-5%] w-[40vw] h-[40vw] rounded-full bg-pink-300/20 blur-[100px] animate-[spin_40s_linear_infinite]"></div>
         <div className="absolute bottom-[-10%] right-[-5%] w-[45vw] h-[45vw] rounded-full bg-purple-300/20 blur-[120px] animate-[spin_50s_reverse_infinite]"></div>
@@ -192,16 +196,10 @@ export default function EpicAuthPage() {
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.03] mix-blend-multiply"></div>
       </div>
 
-      {/* BASE GLASS CARD (Aero Glass Style) */}
       <div className="relative z-10 w-full max-w-[1100px] min-h-[650px] mx-4 rounded-[2.5rem] bg-white/60 border border-white backdrop-blur-3xl shadow-[0_20px_60px_rgba(0,0,0,0.05)] overflow-hidden flex flex-col lg:flex-row animate-in fade-in zoom-in-95 duration-1000">
         
-        {/* BRANDING TEXT */}
         <div className="w-full lg:w-[45%] p-10 lg:p-14 flex flex-col justify-between border-b lg:border-b-0 lg:border-r border-white/60 bg-gradient-to-br from-white/40 to-transparent">
           <div>
-            
-            {/* ========================================= */}
-            {/* LOGO LAMBANG PEMKOT                       */}
-            {/* ========================================= */}
             <div className="flex items-center gap-4 mb-10">
               <div className="relative w-12 h-14 flex-shrink-0 drop-shadow-sm">
                 <Image 
@@ -218,7 +216,6 @@ export default function EpicAuthPage() {
                 <p className="text-[10px] text-pink-500 font-bold tracking-widest uppercase">Pemerintah Kota</p>
               </div>
             </div>
-            {/* ========================================= */}
 
             <h1 className="text-4xl md:text-5xl font-extrabold text-slate-800 leading-tight mb-6 tracking-tight">
               Akses <br/>
@@ -232,10 +229,8 @@ export default function EpicAuthPage() {
           </div>
         </div>
 
-        {/* INTERACTIVE FORM PANEL */}
         <div className="w-full lg:w-[55%] p-8 md:p-14 relative flex flex-col justify-center bg-white/40">
           
-          {/* TAB SWITCHER */}
           <div className="flex p-1 bg-white/60 rounded-xl border border-white shadow-sm w-fit mb-10 mx-auto lg:mx-0">
             <button onClick={() => setIsLogin(true)} className={`px-6 py-2.5 text-sm font-bold rounded-lg transition-all duration-300 ${isLogin ? 'bg-white text-pink-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'}`}>
               Masuk Akun
@@ -283,7 +278,6 @@ export default function EpicAuthPage() {
                 </button>
               </form>
 
-              {/* --- BAGIAN TAMBAHAN GOOGLE SSO --- */}
               <div className="mt-6 flex items-center justify-center space-x-3 relative">
                 <div className="h-px bg-slate-200/60 w-full"></div>
                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest bg-transparent px-2">Atau</span>
@@ -295,7 +289,6 @@ export default function EpicAuthPage() {
                 onClick={handleGoogleLogin}
                 className="w-full mt-6 h-12 rounded-xl bg-white/60 border border-white hover:bg-white/90 font-bold text-slate-600 text-sm shadow-[0_4px_10px_rgba(0,0,0,0.03)] hover:shadow-[0_4px_15px_rgba(0,0,0,0.06)] transition-all active:scale-[0.98] flex items-center justify-center gap-3"
               >
-                {/* SVG Logo Google */}
                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                   <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                   <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -304,7 +297,6 @@ export default function EpicAuthPage() {
                 </svg>
                 Lanjutkan dengan Google
               </button>
-              {/* --- AKHIR BAGIAN TAMBAHAN GOOGLE SSO --- */}
 
             </div>
 
@@ -360,7 +352,6 @@ export default function EpicAuthPage() {
                       type="password" 
                       value={regPassword} 
                       onChange={(e) => setRegPassword(e.target.value)} 
-                      // Tambahkan efek border merah jika input tidak valid
                       className={`w-full bg-white/70 border shadow-inner rounded-xl pl-11 pr-4 py-2.5 text-sm text-slate-800 focus:outline-none focus:ring-4 transition-all placeholder-slate-300 font-medium ${
                         regPassword.length > 0 && regPassword.length < 8 
                         ? 'border-red-300 focus:ring-red-500/10' 
@@ -370,7 +361,6 @@ export default function EpicAuthPage() {
                     />
                   </div>
                   
-                  {/* PERINGATAN MERAH */}
                   {regPassword.length > 0 && regPassword.length < 8 && (
                     <p className="text-red-500 text-[10px] font-bold mt-1 px-1 animate-in fade-in slide-in-from-top-1">
                       Minimal 8 karakter diperlukan!
@@ -380,8 +370,7 @@ export default function EpicAuthPage() {
 
                 <button 
                   type="submit" 
-                  // TOMBOL DINONAKTIFKAN jika sedang loading ATAU password kurang dari 8
-                  disabled={isSubmitting || regPassword.length < 8} 
+                  disabled={isSubmitting || (regPassword.length > 0 && regPassword.length < 8)} 
                   className="w-full relative mt-8 h-12 rounded-xl bg-gradient-to-r from-pink-600 to-purple-600 hover:from-pink-500 hover:to-purple-500 font-bold text-white text-sm shadow-[0_8px_20px_rgba(236,72,153,0.3)] hover:shadow-[0_8px_25px_rgba(236,72,153,0.4)] disabled:opacity-50 disabled:grayscale transition-all active:scale-[0.98]"
                 >
                   {isSubmitting ? 'Menyimpan Kredensial...' : 'Daftarkan Kredensial'}
@@ -392,6 +381,31 @@ export default function EpicAuthPage() {
 
         </div>
       </div>
+
+      {/* ========================================= */}
+      {/* KOMPONEN TOAST NOTIFICATION               */}
+      {/* ========================================= */}
+      {toastMessage && (
+        <div className={`fixed top-6 right-6 z-[70] ${isToastClosing ? 'animate-out slide-out-to-right' : 'animate-in slide-in-from-right duration-300'}`}>
+          <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-[0_10px_40px_rgba(52,211,153,0.15)] flex items-center space-x-4">
+            <div className="w-10 h-10 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">Berhasil!</h4>
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">{toastMessage}</p>
+            </div>
+            <button onClick={closeToast} className="pl-4 text-slate-400 hover:text-slate-800 transition duration-300">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

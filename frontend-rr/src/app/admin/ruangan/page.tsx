@@ -269,27 +269,98 @@ export default function EpicManajemenRuanganPage() {
       {/* HEADER SECTION */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Manajemen Ruangan</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">Manajemen Ruangan</h1>
           <p className="text-sm text-slate-500 mt-2 flex items-center gap-2 font-medium">
-            <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse shadow-[0_0_8px_#ec4899]"></span>
+            <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse shadow-[0_0_8px_#ec4899] flex-shrink-0"></span>
             Kelola data master ruangan, kapasitas, dan fasilitas yang tersedia.
           </p>
         </div>
         <button 
           onClick={() => { resetForm(); setShowModal(true); }}
-          className="relative group overflow-hidden rounded-xl p-[1px] shadow-sm hover:shadow-md transition-all"
+          className="relative group overflow-hidden rounded-xl p-[1px] shadow-sm hover:shadow-md transition-all w-full md:w-auto"
         >
           <span className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 rounded-xl opacity-80 group-hover:opacity-100 transition-opacity duration-300"></span>
-          <div className="relative bg-white px-6 py-2.5 rounded-xl flex items-center space-x-2 transition-all duration-300">
+          <div className="relative bg-white px-6 py-2.5 rounded-xl flex items-center justify-center space-x-2 transition-all duration-300">
             <svg className="w-4 h-4 text-pink-500 group-hover:text-pink-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
             <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Tambah Ruangan Baru</span>
           </div>
         </button>
       </div>
 
-      {/* MAIN TABLE CARD */}
-      <div className="bg-white/60 backdrop-blur-2xl rounded-[2.5rem] border border-white overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.04)]">
-        <div className="overflow-x-auto">
+      {/* MAIN CONTENT CARD */}
+      <div className="bg-white/60 backdrop-blur-2xl rounded-[2rem] sm:rounded-[2.5rem] border border-white overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.04)]">
+
+        {/* ===== MOBILE: CARD LIST (< md) ===== */}
+        <div className="md:hidden divide-y divide-slate-100">
+          {isLoading ? (
+            <div className="py-16 flex flex-col items-center justify-center space-y-4">
+              <div className="w-8 h-8 border-4 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+              <p className="text-sm text-slate-500 font-medium">Memuat Data Master Ruangan...</p>
+            </div>
+          ) : rooms.length === 0 ? (
+            <div className="py-20 px-6 flex flex-col items-center justify-center text-center">
+              <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mb-4 text-slate-300 border border-slate-100 shadow-sm">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path></svg>
+              </div>
+              <h4 className="text-slate-700 font-bold mb-1">Belum Ada Data Ruangan</h4>
+              <p className="text-sm text-slate-400 font-medium mb-6">Sistem siap untuk penambahan data master ruangan.</p>
+              <button
+                onClick={() => { resetForm(); setShowModal(true); }}
+                className="px-6 py-2.5 text-sm font-bold text-white bg-gradient-to-r from-pink-500 to-purple-500 rounded-xl shadow-[0_8px_20px_rgba(236,72,153,0.3)] hover:shadow-[0_8px_25px_rgba(236,72,153,0.4)] transition-all active:scale-95"
+              >
+                Tambah Ruangan Pertama
+              </button>
+            </div>
+          ) : (
+            rooms.map((room) => (
+              <div key={room.id} className="p-5 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-16 h-16 bg-slate-100 border border-slate-200 rounded-xl overflow-hidden flex-shrink-0 shadow-sm">
+                    {room.gambarUrl ? (
+                      <img src={room.gambarUrl} alt={room.nama} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full bg-slate-200 flex items-center justify-center text-slate-400">
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                      </div>
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-800 text-base truncate">{room.nama}</p>
+                    <p className="text-xs text-slate-500 font-medium mt-0.5">{room.kapasitas} Orang</p>
+                  </div>
+                  <span className={`flex-shrink-0 px-2.5 py-1 rounded-lg text-[9px] font-extrabold uppercase tracking-widest border shadow-sm
+                    ${room.status === 'Aktif' ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                    {room.status}
+                  </span>
+                </div>
+
+                {room.fasilitas?.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    {room.fasilitas.map((fasilitas, idx) => (
+                      <span key={idx} className="inline-flex items-center px-2.5 py-1 rounded-md bg-white text-slate-500 text-[10px] font-bold border border-slate-200 shadow-sm uppercase tracking-wider">
+                        {fasilitas}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button onClick={() => handleEditClick(room)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-slate-50 text-slate-600 border border-slate-200 rounded-xl font-bold text-xs shadow-sm active:scale-95 transition-all">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"></path></svg>
+                    Edit
+                  </button>
+                  <button onClick={() => handleDeleteClick(room.id)} className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-rose-50 text-rose-600 border border-rose-200 rounded-xl font-bold text-xs shadow-sm active:scale-95 transition-all">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    Hapus
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* ===== DESKTOP: TABLE (>= md) ===== */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full text-sm text-left">
             <thead className="text-slate-400 font-bold text-[10px] uppercase tracking-widest bg-slate-50/50 border-b border-slate-100">
               <tr>
@@ -383,7 +454,7 @@ export default function EpicManajemenRuanganPage() {
       {showModal && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setShowModal(false)}></div>
-          <div className="relative w-full max-w-md bg-white border border-slate-100 rounded-[2.5rem] p-6 shadow-2xl animate-in zoom-in-95 duration-300">
+          <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto bg-white border border-slate-100 rounded-[2rem] sm:rounded-[2.5rem] p-6 shadow-2xl animate-in zoom-in-95 duration-300 custom-scrollbar">
             <h2 className="text-xl font-extrabold text-slate-800 mb-5 tracking-tight">{editingId ? 'Edit Data Ruangan' : 'Tambah Ruangan'}</h2>
             
             <form onSubmit={handleSubmit} className="space-y-3">
@@ -449,8 +520,8 @@ export default function EpicManajemenRuanganPage() {
       
       {/* TOAST NOTIFICATION */}
       {successMessage && (
-        <div className={`fixed top-6 right-6 z-[70] ${isToastClosing ? 'animate-out slide-out-to-right' : 'animate-in slide-in-from-right duration-300'}`}>
-          <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-[0_10px_40px_rgba(52,211,153,0.15)] flex items-center space-x-4">
+        <div className={`fixed top-4 sm:top-6 right-4 sm:right-6 left-4 sm:left-auto z-[70] ${isToastClosing ? 'animate-out slide-out-to-right' : 'animate-in slide-in-from-right duration-300'}`}>
+          <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-[0_10px_40px_rgba(52,211,153,0.15)] flex items-center space-x-4 sm:max-w-sm">
             <div className="w-10 h-10 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
               <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path></svg>
             </div>
@@ -467,8 +538,8 @@ export default function EpicManajemenRuanganPage() {
 
       {/* ================= POP-UP ERROR (TOAST MERAH) ================= */}
       {errorMessage && (
-        <div className={`fixed top-6 right-6 z-[70] ${isToastClosing ? 'animate-toast-slide-out' : 'animate-toast-slide'}`}>
-          <div className="bg-[#0A0A0A] border border-red-500/30 rounded-2xl p-4 shadow-[0_0_40px_rgba(239,68,68,0.15)] flex items-center space-x-4 max-w-sm">
+        <div className={`fixed top-4 sm:top-6 right-4 sm:right-6 left-4 sm:left-auto z-[70] ${isToastClosing ? 'animate-toast-slide-out' : 'animate-toast-slide'}`}>
+          <div className="bg-[#0A0A0A] border border-red-500/30 rounded-2xl p-4 shadow-[0_0_40px_rgba(239,68,68,0.15)] flex items-center space-x-4 sm:max-w-sm">
             <div className="w-10 h-10 bg-red-500/10 rounded-full flex items-center justify-center flex-shrink-0">
               <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>

@@ -31,6 +31,12 @@ export default function UserReservasiPage() {
   const [is3DModalOpen, setIs3DModalOpen] = useState(false);
   const [active3DRoom, setActive3DRoom] = useState<Room | null>(null);
 
+  // State untuk Toast & Modal Konfirmasi Hapus
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isToastClosing, setIsToastClosing] = useState(false);
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [isModalClosing, setIsModalClosing] = useState(false);
+
   // Setup URL API
   const baseUrl = '/api';
 
@@ -191,6 +197,23 @@ export default function UserReservasiPage() {
     setIs3DModalOpen(true);
   };
 
+  const closeToast = () => {
+    setIsToastClosing(true);
+    setTimeout(() => {
+      setSuccessMessage(null);
+      setIsToastClosing(false);
+    }, 400); 
+  };
+
+  const closeDeleteModal = () => {
+    setIsModalClosing(true);
+    setTimeout(() => {
+      setDeleteConfirmId(null);
+      setIsModalClosing(false);
+    }, 300);
+  };
+
+
   // =========================================
   // 2. SUBMIT DATA RESERVASI KE BACKEND
   // =========================================
@@ -227,7 +250,10 @@ export default function UserReservasiPage() {
       const result = await response.json();
 
       if (response.ok) {
-        alert("Berhasil! Permohonan untuk ruangan telah diajukan dan menunggu verifikasi Admin.");
+        setSuccessMessage("Berhasil! Permohonan untuk ruangan telah diajukan dan menunggu verifikasi Admin.");
+        setTimeout(() => {
+          closeToast();
+        }, 3000);
         setFormData({ tanggal: '', waktuMulai: '', waktuSelesai: '', agenda: '', peserta: '', catatan: '' });
         setSelectedRoom(null);
         setDragStartIndex(null);
@@ -516,6 +542,29 @@ export default function UserReservasiPage() {
 
       {/* RENDER MODAL 3D DENGAN PORTAL AGAR BEBAS DARI Z-INDEX TRAP */}
       {render3DModal()}
+
+
+      {/* TOAST NOTIFICATION                        */}
+      {successMessage && (
+        <div className={`fixed top-6 right-6 z-[70] ${isToastClosing ? 'animate-out slide-out-to-right' : 'animate-in slide-in-from-right duration-300'}`}>
+          <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-[0_10px_40px_rgba(52,211,153,0.15)] flex items-center space-x-4">
+            <div className="w-10 h-10 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">Berhasil!</h4>
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">{successMessage}</p>
+            </div>
+            <button onClick={closeToast} className="pl-4 text-slate-400 hover:text-slate-800 transition duration-300">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

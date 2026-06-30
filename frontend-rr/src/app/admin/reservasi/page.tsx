@@ -20,6 +20,8 @@ export default function EpicReservasiPage() {
   const [showAddModal, setShowAddModal] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'Menunggu' | 'Disetujui' | 'Ditolak'>('Menunggu');
+  const [filterDate, setFilterDate] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [formData, setFormData] = useState({
     user_id: '',
     room_id: '',
@@ -28,6 +30,29 @@ export default function EpicReservasiPage() {
     waktu_selesai: '',
     agenda: ''
   });
+
+  // State untuk menampilkan pesan toast
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isToastClosing, setIsToastClosing] = useState(false);
+
+  // --- LOGIKA AUTO-CLOSE TOAST ---
+  useEffect(() => {
+    if (toastMessage) {
+      const timer = setTimeout(() => {
+        closeToast();
+      }, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [toastMessage]);
+
+  const closeToast = () => {
+    setIsToastClosing(true);
+    setTimeout(() => {
+      setToastMessage(null);
+      setIsToastClosing(false);
+    }, 400); 
+  };
+  // End Toast Logic and state
 
   const [rooms, setRooms] = useState<any[]>([]);
 
@@ -164,18 +189,11 @@ export default function EpicReservasiPage() {
         body: JSON.stringify({ status: newStatus })
       });
 
-      if (response.status === 401) {
-        window.location.href = '/login';
-        return;
-      }
-
-      const result = await response.json();
-
       if (response.ok) {
         await fetchReservations();
-        alert("Status berhasil diubah!");
+        setToastMessage(`Status reservasi berhasil diubah menjadi ${newStatus}!`); // Ganti alert dengan Toast
       } else {
-        alert("Error: " + (result.message || "Terjadi kesalahan"));
+        alert("Gagal memproses.");
       }
     } catch (error) {
       console.error("Network Error:", error);
@@ -198,27 +216,20 @@ export default function EpicReservasiPage() {
         body: JSON.stringify(formData)
       });
 
-      if (response.status === 401) {
-        window.location.href = '/login';
-        return;
-      }
-
-      const resData = await response.json();
-
       if (response.ok) {
         setShowAddModal(false);
         setFormData({ user_id: '', room_id: '', tanggal: '', waktu_mulai: '', waktu_selesai: '', agenda: '' });
         fetchReservations();
-        alert("Reservasi baru berhasil dibuat!");
+        setToastMessage("Reservasi baru berhasil dibuat!"); // Ganti alert dengan Toast
       } else {
-        alert(resData.message || 'Gagal membuat reservasi.');
+        alert('Gagal membuat reservasi.');
       }
     } catch (error) {
       console.error("Error submitting reservation:", error);
     }
   };
   
-// =========================================
+  // =========================================
   // LOGIKA PERHITUNGAN KARTU RINGKASAN
   // =========================================
   
@@ -230,6 +241,28 @@ export default function EpicReservasiPage() {
   const totalDitolak = reservations.filter(res => res.status === 'Ditolak').length;
   const totalReservasi = reservations.length; // Total semua data yang ada
 
+  // =========================================
+  // LOGIKA FILTER TABEL (TAB + TANGGAL + PENCARIAN)
+  // =========================================
+  const filteredReservations = reservations
+    .filter((res) => res.status === activeTab)
+    .filter((res) => !filterDate || res.tanggal === filterDate)
+    .filter((res) => {
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.trim().toLowerCase();
+      return (
+        res.pemohon.toLowerCase().includes(q) ||
+        res.agenda.toLowerCase().includes(q) ||
+        res.instansi.toLowerCase().includes(q) ||
+        res.ruangan.toLowerCase().includes(q)
+      );
+    });
+
+  const resetFilters = () => {
+    setFilterDate('');
+    setSearchQuery('');
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       
@@ -238,58 +271,58 @@ export default function EpicReservasiPage() {
       {/* ========================================= */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight">Data Reservasi</h1>
+          <h1 className="text-2xl sm:text-3xl font-black text-slate-800 tracking-tight">Data Reservasi</h1>
           <p className="text-sm text-slate-500 mt-2 flex items-center gap-2 font-medium">
-            <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse shadow-[0_0_8px_#ec4899]"></span>
+            <span className="w-2 h-2 rounded-full bg-pink-500 animate-pulse shadow-[0_0_8px_#ec4899] flex-shrink-0"></span>
             Pantau dan kelola seluruh permohonan reservasi ruangan secara real-time.
           </p>
         </div>
-        <button onClick={() => setShowAddModal(true)} className="relative group overflow-hidden rounded-xl p-[1px] shadow-sm hover:shadow-md transition-all">
+        <button onClick={() => setShowAddModal(true)} className="relative group overflow-hidden rounded-xl p-[1px] shadow-sm hover:shadow-md transition-all w-full md:w-auto">
           <span className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 rounded-xl opacity-80 group-hover:opacity-100 transition-opacity duration-300"></span>
-          <div className="relative bg-white px-6 py-2.5 rounded-xl flex items-center space-x-2 transition-all duration-300">
+          <div className="relative bg-white px-6 py-2.5 rounded-xl flex items-center justify-center space-x-2 transition-all duration-300">
             <svg className="w-4 h-4 text-pink-500 group-hover:text-pink-600 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 4v16m8-8H4"></path></svg>
             <span className="text-sm font-bold text-slate-700 group-hover:text-slate-900 transition-colors">Buat Reservasi Baru</span>
           </div>
         </button>
       </div>
 
-{/* ========================================= */}
+      {/* ========================================= */}
       {/* SUMMARY CARDS (LIGHT GLASSMORPHISM)       */}
       {/* ========================================= */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-6">
         
         {/* Kartu: Menunggu Persetujuan */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white p-6 rounded-[2rem] hover:shadow-lg transition-all duration-500 relative overflow-hidden group shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:-translate-y-1">
+        <div className="bg-white/60 backdrop-blur-xl border border-white p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] hover:shadow-lg transition-all duration-500 relative overflow-hidden group shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-amber-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest relative z-10">Menunggu Persetujuan</p>
-          <h3 className="text-3xl font-black text-slate-800 mt-2 relative z-10">
+          <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest relative z-10">Menunggu Persetujuan</p>
+          <h3 className="text-2xl sm:text-3xl font-black text-slate-800 mt-2 relative z-10">
             {isLoading ? '...' : totalMenunggu}
           </h3>
         </div>
 
         {/* Kartu: Total Disetujui */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white p-6 rounded-[2rem] hover:shadow-lg transition-all duration-500 relative overflow-hidden group shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:-translate-y-1">
+        <div className="bg-white/60 backdrop-blur-xl border border-white p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] hover:shadow-lg transition-all duration-500 relative overflow-hidden group shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest relative z-10">Total Disetujui</p>
-          <h3 className="text-3xl font-black text-emerald-500 mt-2 relative z-10">
+          <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest relative z-10">Total Disetujui</p>
+          <h3 className="text-2xl sm:text-3xl font-black text-emerald-500 mt-2 relative z-10">
             {isLoading ? '...' : totalDisetujui}
           </h3>
         </div>
 
         {/* Kartu: Total Ditolak */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white p-6 rounded-[2rem] hover:shadow-lg transition-all duration-500 relative overflow-hidden group shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:-translate-y-1">
+        <div className="bg-white/60 backdrop-blur-xl border border-white p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] hover:shadow-lg transition-all duration-500 relative overflow-hidden group shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-rose-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest relative z-10">Total Ditolak</p>
-          <h3 className="text-3xl font-black text-rose-500 mt-2 relative z-10">
+          <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest relative z-10">Total Ditolak</p>
+          <h3 className="text-2xl sm:text-3xl font-black text-rose-500 mt-2 relative z-10">
             {isLoading ? '...' : totalDitolak}
           </h3>
         </div>
 
         {/* Kartu: Total Semua Reservasi */}
-        <div className="bg-white/60 backdrop-blur-xl border border-white p-6 rounded-[2rem] hover:shadow-lg transition-all duration-500 relative overflow-hidden group shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:-translate-y-1">
+        <div className="bg-white/60 backdrop-blur-xl border border-white p-4 sm:p-6 rounded-2xl sm:rounded-[2rem] hover:shadow-lg transition-all duration-500 relative overflow-hidden group shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:-translate-y-1">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest relative z-10">Total Reservasi</p>
-          <h3 className="text-3xl font-black text-blue-500 mt-2 relative z-10">
+          <p className="text-[9px] sm:text-[10px] text-slate-400 font-bold uppercase tracking-widest relative z-10">Total Reservasi</p>
+          <h3 className="text-2xl sm:text-3xl font-black text-blue-500 mt-2 relative z-10">
             {isLoading ? '...' : totalReservasi}
           </h3>
         </div>
@@ -328,23 +361,46 @@ export default function EpicReservasiPage() {
             </div>
 
             {/* Date Picker & Search */}
-            <div className="flex gap-3 mb-2 md:mb-0">
+            <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
               <div className="relative group">
-                <input 
-                  type="date" 
-                  className="text-sm bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-pink-500/10 focus:border-pink-400 py-2.5 px-4 w-40 outline-none transition-all shadow-sm font-medium"
+                <input
+                  type="date"
+                  value={filterDate}
+                  onChange={(e) => setFilterDate(e.target.value)}
+                  className="text-sm bg-white border border-slate-200 rounded-xl text-slate-700 focus:ring-4 focus:ring-pink-500/10 focus:border-pink-400 py-2.5 px-4 w-full sm:w-40 outline-none transition-all shadow-sm font-medium"
                 />
               </div>
-              <div className="relative w-full md:w-64 group">
+              <div className="relative w-full sm:w-64 group">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                   <svg className="w-4 h-4 text-slate-400 group-focus-within:text-pink-500 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
                 </div>
-                <input 
-                  type="text" 
-                  placeholder="Cari pemohon, agenda..." 
-                  className="pl-11 w-full text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-pink-500/10 focus:border-pink-400 py-2.5 outline-none transition-all shadow-sm font-medium"
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Cari pemohon, agenda..."
+                  className="pl-11 pr-9 w-full text-sm bg-white border border-slate-200 rounded-xl text-slate-800 placeholder-slate-400 focus:ring-4 focus:ring-pink-500/10 focus:border-pink-400 py-2.5 outline-none transition-all shadow-sm font-medium"
                 />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery('')}
+                    type="button"
+                    aria-label="Hapus pencarian"
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-300 hover:text-slate-500 transition-colors"
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path></svg>
+                  </button>
+                )}
               </div>
+              {(filterDate || searchQuery) && (
+                <button
+                  onClick={resetFilters}
+                  type="button"
+                  className="text-xs font-bold text-slate-400 hover:text-pink-500 transition-colors px-2 whitespace-nowrap self-center"
+                >
+                  Reset Filter
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -372,7 +428,7 @@ export default function EpicReservasiPage() {
                     </div>
                   </td>
                 </tr>
-              ) : reservations.filter((res) => res.status === activeTab).length === 0 ? (
+              ) : filteredReservations.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-24 text-center">
                     <div className="flex flex-col items-center justify-center">
@@ -380,14 +436,24 @@ export default function EpicReservasiPage() {
                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"></path></svg>
                       </div>
                       <h4 className="text-slate-700 font-bold mb-1">Belum Ada Data</h4>
-                      <p className="text-sm text-slate-400 font-medium">Tidak ada data reservasi pada kategori ini.</p>
+                      <p className="text-sm text-slate-400 font-medium">
+                        {filterDate || searchQuery
+                          ? 'Tidak ada hasil yang cocok dengan filter saat ini.'
+                          : 'Tidak ada data reservasi pada kategori ini.'}
+                      </p>
+                      {(filterDate || searchQuery) && (
+                        <button
+                          onClick={resetFilters}
+                          className="mt-4 text-xs font-bold text-pink-500 hover:text-pink-600 uppercase tracking-widest transition-colors"
+                        >
+                          Reset Filter
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
               ) : (
-                reservations
-                .filter((res) => res.status === activeTab)
-                .map((res) => (
+                filteredReservations.map((res) => (
                   <tr key={res.id} className="hover:bg-slate-50/50 transition-colors group/row">
                     <td className="px-8 py-5">
                       <p className="font-bold text-slate-800 group-hover/row:text-pink-600 transition-colors">{res.pemohon}</p>
@@ -432,7 +498,8 @@ export default function EpicReservasiPage() {
                       </td>
                     )}
                   </tr>
-              )))}
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -532,6 +599,28 @@ export default function EpicReservasiPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/*================= TOAST NOTIFICATION =================*/}
+      {toastMessage && (
+        <div className={`fixed top-6 right-6 z-[70] ${isToastClosing ? 'animate-out slide-out-to-right' : 'animate-in slide-in-from-right duration-300'}`}>
+          <div className="bg-white border border-emerald-100 rounded-2xl p-4 shadow-[0_10px_40px_rgba(52,211,153,0.15)] flex items-center space-x-4">
+            <div className="w-10 h-10 bg-emerald-50 border border-emerald-100 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm">
+              <svg className="w-5 h-5 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7"></path>
+              </svg>
+            </div>
+            <div>
+              <h4 className="text-sm font-bold text-slate-800">Berhasil!</h4>
+              <p className="text-xs text-slate-500 mt-0.5 font-medium">{toastMessage}</p>
+            </div>
+            <button onClick={closeToast} className="pl-4 text-slate-400 hover:text-slate-800 transition duration-300">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
           </div>
         </div>
       )}
